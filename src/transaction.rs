@@ -3,7 +3,7 @@ use fixed::types::U51F13;
 use crate::account::AccountId;
 
 /// The unique identifier of a transaction
-#[derive(Clone, Copy, Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, serde::Deserialize, PartialEq, Eq, Hash)]
 pub struct TransactionId(u32);
 
 /// The different types of transactions supported by the transaction engine

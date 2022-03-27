@@ -10,7 +10,7 @@ pub enum AccountError {
 }
 
 /// The unique identifier of an account
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
 pub struct AccountId(u16);
 
 /// A user account
