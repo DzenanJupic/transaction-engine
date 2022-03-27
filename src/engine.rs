@@ -127,3 +127,191 @@ impl TransactionEngine {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    macro_rules! engine_test {
+        (
+            $name:ident
+            $transactions:literal
+            $solution:literal
+        ) => {
+            #[test]
+            fn $name() {
+                let mut reader = csv::ReaderBuilder::new()
+                    .has_headers(true)
+                    .trim(csv::Trim::All)
+                    .from_reader($transactions.as_bytes());
+                let mut engine = TransactionEngine::new();
+
+                for transaction in reader.deserialize() {
+                    let _ = engine.handle_transaction(transaction.unwrap());
+                }
+
+                let mut accounts = csv::ReaderBuilder::new()
+                    .has_headers(true)
+                    .trim(csv::Trim::All)
+                    .from_reader($solution.as_bytes());
+                let accounts = accounts
+                    .deserialize::<Account>()
+                    .map(Result::unwrap)
+                    .map(|account| (account.id(), account))
+                    .collect::<HashMap<_, _>>();
+                assert_eq!(
+                    engine.accounts(),
+                    &accounts,
+                );
+            }
+        };
+    }
+
+    engine_test!(pdf_example
+        r#"type, client, tx, amount
+           deposit,   1,  1,    1.0
+           deposit,   2,  2,    2.0
+           deposit,   1,  3,    2.0
+           withdrawal,1,  4,    1.5
+           withdrawal,2,  5,    3.0"#
+        r#"client,available,held,total,locked
+                1,      1.5,   0,  1.5, false
+                2,        2,   0,    2, false"#
+    );
+
+    engine_test!(deposit
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20"#
+        r#"client,available,held,total,locked
+                1,       70,   0,   70, false"#
+    );
+    engine_test!(duplicate_transaction
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  1,     20"#
+        r#"client,available,held,total,locked
+                1,       50,   0,   50, false"#
+    );
+    engine_test!(withdrawal
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           withdrawal,1,  3,     30
+           withdrawal,1,  4,     10"#
+        r#"client,available,held,total,locked
+                1,       30,   0,   30, false"#
+    );
+    engine_test!(withdrawal_underflow
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           withdrawal,1,  3,     80"#
+        r#"client,available,held,total,locked
+                1,       70,   0,   70, false"#
+    );
+    engine_test!(dispute
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1,  1,     "#
+        r#"client,available,held,total,locked
+                1,       20,  50,   70, false"#
+    );
+    engine_test!(duplicate_dispute
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1,  1,
+           dispute,   1,  1,       "#
+        r#"client,available,held,total,locked
+                1,       20,  50,   70, false"#
+    );
+    engine_test!(dispute_underflow
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           withdrawal,1,  3,     60
+           dispute,   1,  1,       "#
+        r#"client,available,held,total,locked
+                1,       10,   0,   10, false"#
+    );
+    engine_test!(dispute_unknown
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1, 42,       "#
+        r#"client,available,held,total,locked
+                1,       70,   0,   70, false"#
+    );
+    engine_test!(resolve
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1,  1,
+           resolve,   1,  1,       "#
+        r#"client,available,held,total,locked
+                1,       70,   0,   70, false"#
+    );
+    engine_test!(resolve_unknown
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1,  1,
+           resolve,   1, 42,       "#
+        r#"client,available,held,total,locked
+                1,       20,  50,   70, false"#
+    );
+    engine_test!(duplicate_resolve
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1,  1,
+           resolve,   1,  1,
+           resolve,   1,  1,       "#
+        r#"client,available,held,total,locked
+                1,       70,  0,   70, false"#
+    );
+    engine_test!(chargeback
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1,  1,
+           chargeback,1,  1,       "#
+        r#"client,available,held,total,locked
+                1,       20,  0,   20, true"#
+    );
+    engine_test!(duplicate_chargeback
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1,  1,
+           chargeback,1,  1,
+           dispute,   1,  1,
+           chargeback,1,  1,       "#
+        r#"client,available,held,total,locked
+                1,       20,  0,   20, true"#
+    );
+    engine_test!(deposit_after_chargeback
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1,  1,
+           chargeback,1,  1,
+           deposit,   1,  3,     10"#
+        r#"client,available,held,total,locked
+                1,       20,  0,   20, true"#
+    );
+    engine_test!(withdrawal_after_chargeback
+        r#"type, client, tx, amount
+           deposit,   1,  1,     50
+           deposit,   1,  2,     20
+           dispute,   1,  1,
+           chargeback,1,  1,
+           withdrawal,1,  3,     10"#
+        r#"client,available,held,total,locked
+                1,       20,  0,   20, true"#
+    );
+}

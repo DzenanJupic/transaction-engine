@@ -24,8 +24,9 @@ pub struct AccountId(u16);
 ///    possible future claims, like chargebacks. The
 ///    client cannot use these funds until they are
 ///    either charged back, or freed.
-#[derive(Debug)]
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Account {
+    #[serde(rename = "client")]
     id: AccountId,
     available: Amount,
     held: Amount,
