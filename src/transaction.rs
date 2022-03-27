@@ -1,6 +1,4 @@
-use fixed::types::U51F13;
-
-use crate::account::AccountId;
+use crate::{account::AccountId, Amount};
 
 /// The unique identifier of a transaction
 #[derive(Clone, Copy, Debug, serde::Deserialize, PartialEq, Eq, Hash)]
@@ -33,7 +31,7 @@ pub struct Transaction {
     #[serde(rename = "type")]
     transaction_type: TransactionType,
     client: AccountId,
-    amount: Option<U51F13>,
+    amount: Option<Amount>,
 }
 
 impl Transaction {
@@ -54,7 +52,7 @@ impl Transaction {
 
     /// The amount
     /// Will only be populated for deposits and withdrawals
-    pub fn amount(&self) -> Option<U51F13> {
+    pub fn amount(&self) -> Option<Amount> {
         self.amount
     }
 }

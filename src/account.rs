@@ -1,4 +1,4 @@
-use fixed::types::U51F13;
+use crate::Amount;
 
 /// Possible errors to occur during account operations
 #[derive(Debug, thiserror::Error)]
@@ -27,8 +27,8 @@ pub struct AccountId(u16);
 #[derive(Debug)]
 pub struct Account {
     id: AccountId,
-    available: U51F13,
-    held: U51F13,
+    available: Amount,
+    held: Amount,
     locked: bool,
 }
 
@@ -37,8 +37,8 @@ impl Account {
     pub fn new(id: AccountId) -> Self {
         Self {
             id,
-            available: U51F13::from_num(0),
-            held: U51F13::from_num(0),
+            available: Amount::from_num(0),
+            held: Amount::from_num(0),
             locked: false,
         }
     }
@@ -52,12 +52,12 @@ impl Account {
     ///
     /// The total funds are the sum of available and held back funds.
     /// See [`Account`] for more info.
-    pub fn total(&self) -> U51F13 {
+    pub fn total(&self) -> Amount {
         self.available + self.held
     }
 
     /// Deposits the specified amount on the account
-    pub fn deposit(&mut self, amount: U51F13) -> Result<(), AccountError> {
+    pub fn deposit(&mut self, amount: Amount) -> Result<(), AccountError> {
         self.check_locked()?;
         self.available += amount;
 
@@ -65,7 +65,7 @@ impl Account {
     }
 
     /// Withdrawals the specified amount from the account
-    pub fn withdrawal(&mut self, amount: U51F13) -> Result<(), AccountError> {
+    pub fn withdrawal(&mut self, amount: Amount) -> Result<(), AccountError> {
         self.check_locked()?;
         self.available = self.available
             .checked_sub(amount)
@@ -76,7 +76,7 @@ impl Account {
 
     /// Holds the specified amount back from future withdrawals
     /// *To release the funds again, you can use [`Account::set_free`]*
-    pub fn hold_back(&mut self, amount: U51F13) -> Result<(), AccountError> {
+    pub fn hold_back(&mut self, amount: Amount) -> Result<(), AccountError> {
         self.check_locked()?;
         self.available = self.available
             .checked_sub(amount)
@@ -88,7 +88,7 @@ impl Account {
 
     /// Releases the specified amount for future withdrawals
     /// *To  hold funds back, you can use [`Account::withdrawal`]*
-    pub fn set_free(&mut self, amount: U51F13) -> Result<(), AccountError> {
+    pub fn set_free(&mut self, amount: Amount) -> Result<(), AccountError> {
         self.check_locked()?;
         self.held = self.held
             .checked_sub(amount)
@@ -103,7 +103,7 @@ impl Account {
     /// ### Important
     /// This will leave the account locked. After the account is locked, it can no
     /// longer be used for any purpose until it is unlocked again.
-    pub fn charge_back(&mut self, amount: U51F13) -> Result<(), AccountError> {
+    pub fn charge_back(&mut self, amount: Amount) -> Result<(), AccountError> {
         self.check_locked()?;
         self.held = self.held
             .checked_sub(amount)
@@ -146,13 +146,13 @@ mod tests {
     fn deposit_increases_available() {
         let mut account = Account::new(AccountId(0));
 
-        assert_eq!(account.available, U51F13::from_num(0));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(0));
+        assert_eq!(account.held, Amount::from_num(0));
 
-        account.deposit(U51F13::from_num(100)).unwrap();
+        account.deposit(Amount::from_num(100)).unwrap();
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
     }
 
     #[test]
@@ -160,193 +160,193 @@ mod tests {
         let mut account = Account::new(AccountId(0));
         account.locked = true;
 
-        assert_eq!(account.available, U51F13::from_num(0));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(0));
+        assert_eq!(account.held, Amount::from_num(0));
 
-        account.deposit(U51F13::from_num(100)).unwrap_err();
+        account.deposit(Amount::from_num(100)).unwrap_err();
 
-        assert_eq!(account.available, U51F13::from_num(0));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(0));
+        assert_eq!(account.held, Amount::from_num(0));
     }
 
     #[test]
     fn withdrawal_decreases_available() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(100);
+        account.available = Amount::from_num(100);
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
 
-        account.withdrawal(U51F13::from_num(100)).unwrap();
+        account.withdrawal(Amount::from_num(100)).unwrap();
 
-        assert_eq!(account.available, U51F13::from_num(0));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(0));
+        assert_eq!(account.held, Amount::from_num(0));
     }
 
     #[test]
     fn withdrawal_underflow_fails() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(100);
+        account.available = Amount::from_num(100);
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
 
-        account.withdrawal(U51F13::from_num(200)).unwrap_err();
+        account.withdrawal(Amount::from_num(200)).unwrap_err();
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
     }
 
     #[test]
     fn withdrawal_on_locked_fails() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(100);
+        account.available = Amount::from_num(100);
         account.locked = true;
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
 
-        account.withdrawal(U51F13::from_num(100)).unwrap_err();
+        account.withdrawal(Amount::from_num(100)).unwrap_err();
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
     }
 
     #[test]
     fn hold_back_increases_held() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(100);
+        account.available = Amount::from_num(100);
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
 
-        account.hold_back(U51F13::from_num(50)).unwrap();
+        account.hold_back(Amount::from_num(50)).unwrap();
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
     }
 
     #[test]
     fn hold_back_underflow_fails() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(100);
+        account.available = Amount::from_num(100);
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
 
-        account.hold_back(U51F13::from_num(200)).unwrap_err();
+        account.hold_back(Amount::from_num(200)).unwrap_err();
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
     }
 
     #[test]
     fn hold_back_on_locked_fails() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(100);
+        account.available = Amount::from_num(100);
         account.locked = true;
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
 
-        account.hold_back(U51F13::from_num(50)).unwrap_err();
+        account.hold_back(Amount::from_num(50)).unwrap_err();
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
     }
 
     #[test]
     fn set_free_decreases_held() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(50);
-        account.held = U51F13::from_num(50);
+        account.available = Amount::from_num(50);
+        account.held = Amount::from_num(50);
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
 
-        account.set_free(U51F13::from_num(50)).unwrap();
+        account.set_free(Amount::from_num(50)).unwrap();
 
-        assert_eq!(account.available, U51F13::from_num(100));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(100));
+        assert_eq!(account.held, Amount::from_num(0));
     }
 
     #[test]
     fn set_free_underflow_fails() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(50);
-        account.held = U51F13::from_num(50);
+        account.available = Amount::from_num(50);
+        account.held = Amount::from_num(50);
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
 
-        account.set_free(U51F13::from_num(100)).unwrap_err();
+        account.set_free(Amount::from_num(100)).unwrap_err();
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
     }
 
     #[test]
     fn set_free_on_locked_fails() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(50);
-        account.held = U51F13::from_num(50);
+        account.available = Amount::from_num(50);
+        account.held = Amount::from_num(50);
         account.locked = true;
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
 
-        account.set_free(U51F13::from_num(50)).unwrap_err();
+        account.set_free(Amount::from_num(50)).unwrap_err();
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
     }
 
     #[test]
     fn charge_back_decreases_available() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(50);
-        account.held = U51F13::from_num(50);
+        account.available = Amount::from_num(50);
+        account.held = Amount::from_num(50);
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
 
-        account.charge_back(U51F13::from_num(50)).unwrap();
+        account.charge_back(Amount::from_num(50)).unwrap();
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(0));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(0));
         assert!(account.locked);
     }
 
     #[test]
     fn charge_back_underflow_fails() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(50);
-        account.held = U51F13::from_num(50);
+        account.available = Amount::from_num(50);
+        account.held = Amount::from_num(50);
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
 
-        account.charge_back(U51F13::from_num(100)).unwrap_err();
+        account.charge_back(Amount::from_num(100)).unwrap_err();
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
         assert!(!account.locked);
     }
 
     #[test]
     fn charge_back_on_locked_fails() {
         let mut account = Account::new(AccountId(0));
-        account.available = U51F13::from_num(50);
-        account.held = U51F13::from_num(50);
+        account.available = Amount::from_num(50);
+        account.held = Amount::from_num(50);
         account.locked = true;
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
 
-        account.charge_back(U51F13::from_num(50)).unwrap_err();
+        account.charge_back(Amount::from_num(50)).unwrap_err();
 
-        assert_eq!(account.available, U51F13::from_num(50));
-        assert_eq!(account.held, U51F13::from_num(50));
+        assert_eq!(account.available, Amount::from_num(50));
+        assert_eq!(account.held, Amount::from_num(50));
         assert!(account.locked);
     }
 }
