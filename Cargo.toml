@@ -3,7 +3,19 @@ name = "transaction-engine"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "transaction_engine"
+path = "src/lib.rs"
+
+[[bin]]
+name = "transaction-engine"
+path = "src/bin/main.rs"
+
 [dependencies]
 fixed = { version = "1.14.0", features = ["serde-str"] }
 serde = { version = "1.0.136", features = ["derive"] }
 thiserror = "1.0.30"
+
+anyhow = "1.0.56"
+clap = { version = "3.1.6", features = ["derive"] }
+csv = "1.1.6"
