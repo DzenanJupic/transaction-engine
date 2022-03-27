@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+fixed = { version = "1.14.0", features = ["serde-str"] }
+serde = { version = "1.0.136", features = ["derive"] }
+thiserror = "1.0.30"
