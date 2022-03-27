@@ -137,3 +137,216 @@ impl serde::Serialize for Account {
         map.end()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deposit_increases_available() {
+        let mut account = Account::new(AccountId(0));
+
+        assert_eq!(account.available, U51F13::from_num(0));
+        assert_eq!(account.held, U51F13::from_num(0));
+
+        account.deposit(U51F13::from_num(100)).unwrap();
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+    }
+
+    #[test]
+    fn deposit_on_locked_fails() {
+        let mut account = Account::new(AccountId(0));
+        account.locked = true;
+
+        assert_eq!(account.available, U51F13::from_num(0));
+        assert_eq!(account.held, U51F13::from_num(0));
+
+        account.deposit(U51F13::from_num(100)).unwrap_err();
+
+        assert_eq!(account.available, U51F13::from_num(0));
+        assert_eq!(account.held, U51F13::from_num(0));
+    }
+
+    #[test]
+    fn withdrawal_decreases_available() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(100);
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+
+        account.withdrawal(U51F13::from_num(100)).unwrap();
+
+        assert_eq!(account.available, U51F13::from_num(0));
+        assert_eq!(account.held, U51F13::from_num(0));
+    }
+
+    #[test]
+    fn withdrawal_underflow_fails() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(100);
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+
+        account.withdrawal(U51F13::from_num(200)).unwrap_err();
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+    }
+
+    #[test]
+    fn withdrawal_on_locked_fails() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(100);
+        account.locked = true;
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+
+        account.withdrawal(U51F13::from_num(100)).unwrap_err();
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+    }
+
+    #[test]
+    fn hold_back_increases_held() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(100);
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+
+        account.hold_back(U51F13::from_num(50)).unwrap();
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+    }
+
+    #[test]
+    fn hold_back_underflow_fails() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(100);
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+
+        account.hold_back(U51F13::from_num(200)).unwrap_err();
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+    }
+
+    #[test]
+    fn hold_back_on_locked_fails() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(100);
+        account.locked = true;
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+
+        account.hold_back(U51F13::from_num(50)).unwrap_err();
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+    }
+
+    #[test]
+    fn set_free_decreases_held() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(50);
+        account.held = U51F13::from_num(50);
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+
+        account.set_free(U51F13::from_num(50)).unwrap();
+
+        assert_eq!(account.available, U51F13::from_num(100));
+        assert_eq!(account.held, U51F13::from_num(0));
+    }
+
+    #[test]
+    fn set_free_underflow_fails() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(50);
+        account.held = U51F13::from_num(50);
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+
+        account.set_free(U51F13::from_num(100)).unwrap_err();
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+    }
+
+    #[test]
+    fn set_free_on_locked_fails() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(50);
+        account.held = U51F13::from_num(50);
+        account.locked = true;
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+
+        account.set_free(U51F13::from_num(50)).unwrap_err();
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+    }
+
+    #[test]
+    fn charge_back_decreases_available() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(50);
+        account.held = U51F13::from_num(50);
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+
+        account.charge_back(U51F13::from_num(50)).unwrap();
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(0));
+        assert!(account.locked);
+    }
+
+    #[test]
+    fn charge_back_underflow_fails() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(50);
+        account.held = U51F13::from_num(50);
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+
+        account.charge_back(U51F13::from_num(100)).unwrap_err();
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+        assert!(!account.locked);
+    }
+
+    #[test]
+    fn charge_back_on_locked_fails() {
+        let mut account = Account::new(AccountId(0));
+        account.available = U51F13::from_num(50);
+        account.held = U51F13::from_num(50);
+        account.locked = true;
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+
+        account.charge_back(U51F13::from_num(50)).unwrap_err();
+
+        assert_eq!(account.available, U51F13::from_num(50));
+        assert_eq!(account.held, U51F13::from_num(50));
+        assert!(account.locked);
+    }
+}
